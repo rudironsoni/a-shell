@@ -25,14 +25,13 @@ a-Shell is now <a href="https://holzschu.github.io/a-Shell_iOS/">available on th
 ## How to compile it?
 
 If you want to compile the project yourself, you will need the following steps: 
-* download the entire project and its sub-modules: `git submodule update --init --recursive`
+* download the entire project from GitHub.
 * download all the xcFrameworks: `downloadFrameworks.sh`
     * this will download the standard Apple frameworks (in `xcfs/.build/artefacts/xcfs`, with checksum control).
-    * There are too many Python frameworks (more than 2000) for automatic download. You can either remove them from the "Embed" step in the project, or compile them: 
-        * You'll need the Xcode command line tools, if you don't already have them: `sudo xcode-select --install` 
+    * The Python frameworks are built locally from [BeeWare's Python Apple Support](https://github.com/beeware/Python-Apple-support/tree/main). The script clones (or updates) the support repository into `Python-Apple-support` and runs `sh ./build.sh` for you.
+        * You'll need the Xcode command line tools, if you don't already have them: `sudo xcode-select --install`
         * You also need the OpenSSL libraries (libssl and libcrypto), XQuartz (freetype), and Node.js (npm) for macOS (we provide the versions for iOS and simulator).
-        * change directory to `cpython`: `cd cpython`
-        * build Python 3.11 and all the associated libraries / frameworks: `sh ./downloadAndCompile.sh` (this step takes several hours on a 2GHz i5 MBP, YMMV).
+        * If you need to customize the BeeWare checkout (different branch, directory, or build arguments), set `PYTHON_SUPPORT_REPO`, `PYTHON_SUPPORT_DIR`, `PYTHON_SUPPORT_BRANCH`, or `PYTHON_SUPPORT_BUILD_ARGS` before running `downloadFrameworks.sh`.
 
 a-Shell now runs on the devices. a-Shell mini can run on the devices and the simulator.
 

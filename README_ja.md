@@ -25,14 +25,13 @@ a-Shellは現在、<a href="https://holzschu.github.io/a-Shell_iOS/">AppStoreで
 ## コンパイル方法
 
 プロジェクトを自分でコンパイルしたい場合は、以下の手順が必要です：
-* `git submodule update --init --recursive`でプロジェクト全体とそのサブモジュールをダウンロードします
+* GitHubからプロジェクト全体をダウンロードします。
 * `downloadFrameworks.sh`ですべてのxcFrameworksをダウンロードします
     * これにより、標準のAppleフレームワークがダウンロードされます（`xcfs/.build/artefacts/xcfs`にあり、チェックサム制御があります）。
-    * Pythonフレームワークは多すぎて（2000以上）自動でダウンロードできません。プロジェクトの「Embed」ステップからそれらを削除するか、以下の手順でコンパイルすることができます：
+    * Pythonフレームワークは[BeeWareのPython Apple Support](https://github.com/beeware/Python-Apple-support/tree/main)からローカルにビルドします。スクリプトが`Python-Apple-support`ディレクトリにリポジトリをクローン（または更新）し、`sh ./build.sh`を実行します。
         * Xcode Command Line Toolsが必要です。まだインストールされていない場合は`sudo xcode-select --install`。
         * macOS向けのOpenSSLライブラリ（libsslおよびlibcrypto）、XQuartz（freetype）、Node.js（npm）が必要です（iOSおよびシミュレータ向けのバージョンは提供しています）。
-        * `cd cpython`でディレクトリを`cpython`に変更します
-        * `sh ./downloadAndCompile.sh`でPython 3.11および関連するライブラリやフレームワークをビルドします（このステップには2GHzのi5 MBPでは数時間かかります）。
+        * BeeWareのチェックアウトやビルド引数をカスタマイズする必要がある場合は、`downloadFrameworks.sh`を実行する前に`PYTHON_SUPPORT_REPO`、`PYTHON_SUPPORT_DIR`、`PYTHON_SUPPORT_BRANCH`、`PYTHON_SUPPORT_BUILD_ARGS`などの環境変数を設定してください。
 
 a-Shellは現在デバイス上で動作します。a-Shell miniはデバイス上およびシミュレータ上で動作できます。
 

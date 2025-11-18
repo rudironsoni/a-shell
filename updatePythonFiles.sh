@@ -52,11 +52,11 @@ duplicate_framework () {
 echo copying Library \(twice\)
 rm -rf Resources/Library
 # Full Python (with scipy, sklearn...)
-cp -r cpython/Library Resources/Library
+cp -r Python-Apple-support/Library Resources/Library
 # Use this line if you want a smaller Python (without scipy):
-# cp -r cpython/install_regular/Library Resources/Library
+# cp -r Python-Apple-support/install_regular/Library Resources/Library
 rm -rf Resources_mini/Library
-cp -r cpython/install_mini/Library Resources_mini/Library
+cp -r Python-Apple-support/install_mini/Library Resources_mini/Library
 
 echo cleaning up:
 
@@ -106,12 +106,12 @@ cp Resources/Library/lib/python3.13/_sysconfigdata__ios_arm64-iphoneos.py Resour
 
 echo Copying the Frameworks
 rm -rf Resources/Frameworks
-cp -r cpython/iOS/Frameworks Resources/
-cp -r cpython/iOS/Frameworks/arm64-iphoneos/Python.framework Resources/Frameworks
+cp -r Python-Apple-support/iOS/Frameworks Resources/
+cp -r Python-Apple-support/iOS/Frameworks/arm64-iphoneos/Python.framework Resources/Frameworks
 # Use this one if you want the smaller Python:
-# cp -r cpython/install_regular/iOS/Frameworks Resources_regular/
+# cp -r Python-Apple-support/install_regular/iOS/Frameworks Resources_regular/
 rm -rf Resources_mini/Frameworks
-cp -r cpython/install_mini/iOS/Frameworks Resources_mini/
+cp -r Python-Apple-support/install_mini/iOS/Frameworks Resources_mini/
 
 echo Creating the other Frameworks
 for directory in Resources Resources_mini
