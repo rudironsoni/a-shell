@@ -20,10 +20,10 @@ _ = Package(
             url: "https://github.com/holzschu/openssl-apple/releases/download/v1.1.1w/openssl-dynamic.xcframework.zip",
             checksum: "421712e7150240d57294897bf3e2b0782246d7c687a4a82c3cd053d70a5f08b9"
         ),
+        // REPLACED: Using local a-shell-kernel build instead of downloaded ios_system
         .binaryTarget(
             name: "ios_system",
-            url: "https://github.com/holzschu/ios_system/releases/download/v3.0.2/ios_system.xcframework.zip",
-            checksum: "f8e1364037de546809065ecdf804277fa7b95faffc32604e91ecb4de44d6294e"
+            path: "../../build/a-shell-kernel.xcframework"
         ),
         .binaryTarget(
             name: "awk",
