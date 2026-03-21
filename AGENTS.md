@@ -432,3 +432,280 @@ When modifying a layer:
 3. Create WasmRuntime.swift
 4. Update Xcode build phases
 5. Build and test IPA
+
+## Testing via a-Shell App
+
+### Overview
+
+Package tests are executed **inside the a-shell iOS app** rather than on iOS Simulator directly. This provides the strongest validation that packages work in the actual iOS environment with all constraints (sandbox, kernel, etc.).
+
+### Test Architecture
+
+```
+Build System                    a-Shell App                    Results
+     │                               │                            │
+     ├─→ Build test binaries ─────→│                            │
+     │   (example, minigzip)       │                            │
+     │                               │                            │
+     ├─→ Copy to a-shell/ ─────────→│                            │
+     │   project resources/          │                            │
+     │                               │                            │
+     │                          ┌────┴────────────────┐           │
+     │                          │ TestRunner.swift   │           │
+     │                          │ - Spawns test      │           │
+     │                          │ - Captures stdout  │           │
+     │                          │ - Writes JSON      │           │
+     │                          │   results          │           │
+     │                          └────┬────────────────┘           │
+     │                               │                            │
+     │                          ┌────┴────────────────┐           │
+     │                          │ Documents/test/    │◄───────────┤
+     │                          │ results/           │  Read JSON │
+     │                          └────────────────────┘            │
+     │                               │                            │
+```
+
+### Why This Approach?
+
+**iOS Simulator Limitations:**
+- ❌ Cannot spawn raw command-line binaries
+- ❌ Requires app bundles for execution
+- ❌ Complex app packaging for each test
+- ❌ Security policy blocks unsigned binaries
+
+**a-Shell Testing Advantages:**
+- ✅ Runs in actual iOS environment
+- ✅ Uses kernel syscall layer (a_shell_fork, etc.)
+- ✅ Real sandbox constraints
+- ✅ Simple file I/O for results
+- ✅ Validates complete integration
+- ✅ No app bundle complexity
+
+### Test Binary Locations
+
+**Embedded in app:**
+```
+a-Shell.app/
+├── Resources/
+│   └── Tests/
+│       ├── libz/
+│       │   ├── example
+│       │   ├── minigzip
+│       │   └── manifest.json
+│       ├── libssl/
+│       │   └── ...
+│       └── ...
+└── ...
+```
+
+**manifest.json:**
+```json
+{
+  "package": "libz",
+  "version": "1.3.2",
+  "tests": [
+    {
+      "name": "example",
+      "binary": "example",
+      "args": ["/tmp/testfile"]
+    },
+    {
+      "name": "minigzip",
+      "binary": "minigzip",
+      "args": ["-h"]
+    }
+  ]
+}
+```
+
+### Test Runner Implementation
+
+**TestRunner.swift:**
+```swift
+import Foundation
+
+class TestRunner {
+    func runPackageTests(_ package: String) -> TestReport {
+        let manifest = loadManifest(for: package)
+        var results: [TestResult] = []
+        
+        for test in manifest.tests {
+            let result = runTest(test)
+            results.append(result)
+        }
+        
+        // Write results to Documents
+        writeResultsToFile(results, for: package)
+        
+        return TestReport(results: results)
+    }
+    
+    func runTest(_ test: TestConfig) -> TestResult {
+        // Spawn via kernel
+        let process = Process()
+        process.executableURL = test.binaryURL
+        process.arguments = test.args
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = pipe
+        
+        process.launch()
+        process.waitUntilExit()
+        
+        return TestResult(
+            name: test.name,
+            status: process.terminationStatus == 0 ? .passed : .failed,
+            duration: Date().timeIntervalSince(start),
+            output: String(data: pipe.fileHandleForReading.readDataToEndOfFile(),
+                          encoding: .utf8) ?? ""
+        )
+    }
+    
+    func writeResultsToFile(_ results: [TestResult], for package: String) {
+        let resultsDir = FileManager.default
+            .urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("test-results")
+        
+        try? FileManager.default.createDirectory(
+            at: resultsDir, withIntermediateDirectories: true
+        )
+        
+        let resultFile = resultsDir
+            .appendingPathComponent("\(package)-\(ISO8601DateFormatter().string(from: Date())).json")
+        
+        let report = TestReport(results: results)
+        let jsonData = try? JSONEncoder().encode(report)
+        try? jsonData?.write(to: resultFile)
+    }
+}
+```
+
+### Result Export
+
+**Written to Documents:**
+```
+~/Documents/
+└── test-results/
+    ├── libz-20260321-150000.json
+    ├── libssl-20260321-150500.json
+    └── ...
+```
+
+**JSON Format:**
+```json
+{
+  "package": "libz",
+  "timestamp": "2026-03-21T15:00:00Z",
+  "target": "ios",
+  "results": {
+    "total": 2,
+    "passed": 2,
+    "failed": 0,
+    "skipped": 0
+  },
+  "tests": [
+    {
+      "name": "example",
+      "status": "passed",
+      "duration_ms": 150,
+      "stdout": "zlib version 1.3.2...",
+      "stderr": ""
+    },
+    {
+      "name": "minigzip",
+      "status": "passed",
+      "duration_ms": 120,
+      "stdout": "usage: minigzip...",
+      "stderr": ""
+    }
+  ]
+}
+```
+
+### Testing Workflow
+
+**Development:**
+```bash
+# From a-shell-packages/
+./scripts/build-package.sh libz --target ios
+
+# Install tests to a-shell
+./scripts/install-tests-in-app.sh libz
+
+# Build a-shell with tests
+xcodebuild -project a-Shell.xcodeproj -scheme a-Shell
+
+# Run tests (launch app)
+xcrun simctl launch booted AsheKube.app.a-Shell
+
+# Retrieve results
+cat ~/Library/Developer/CoreSimulator/Devices/.../Documents/test-results/libz-*.json
+```
+
+**Manual Testing in App:**
+```bash
+# In a-shell terminal:
+$ run-tests libz
+Running libz tests...
+✓ example: PASSED
+✓ minigzip: PASSED
+
+Results saved to ~/Documents/test-results/libz-20260321-150000.json
+```
+
+### UI Integration
+
+**Add to Settings Menu:**
+- "Run Package Tests"
+- "View Test Results"
+- "Export Test Report"
+
+**Test Results View:**
+```
+┌─────────────────────┐
+│ Test Results        │
+├─────────────────────┤
+│ libz               │
+│   ✓ example        │
+│   ✓ minigzip       │
+│                    │
+│ libssl             │
+│   ✓ openssl_test   │
+│                    │
+│ [Export] [Re-run]  │
+└─────────────────────┘
+```
+
+### Security
+
+- Tests run in a-shell sandbox
+- Cannot access files outside Documents/
+- No special entitlements needed
+- Standard iOS process isolation
+- Kernel syscall layer mediates access
+
+### Build System Integration
+
+**scripts/run-tests-in-app.sh:**
+```bash
+#!/bin/bash
+# 1. Build tests for iOS
+# 2. Copy to a-shell/Resources/Tests/
+# 3. Build a-shell
+# 4. Install to Simulator
+# 5. Launch test runner
+# 6. Wait for completion
+# 7. Pull results
+# 8. Validate JSON
+```
+
+### Next Steps
+
+1. ✅ Document test strategy (DONE)
+2. Create TestRunner.swift
+3. Add "Run Tests" menu item
+4. Create result export UI
+5. Integrate with build scripts
+6. Test first package (libz)
+
